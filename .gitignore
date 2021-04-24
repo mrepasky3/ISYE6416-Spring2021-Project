@@ -3,3 +3,4 @@ data
 old_data
 *.csv
 *.zip
+.ipynb_checkpoints
