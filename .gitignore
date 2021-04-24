@@ -1,0 +1,5 @@
+*.pdf
+data
+old_data
+*.csv
+*.zip
