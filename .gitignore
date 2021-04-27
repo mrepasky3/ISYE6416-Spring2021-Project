@@ -5,3 +5,5 @@ old_data
 *.zip
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
+movies
+*.mp4
