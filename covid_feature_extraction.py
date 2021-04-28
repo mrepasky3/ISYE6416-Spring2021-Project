@@ -29,6 +29,7 @@ def county_extraction(county_name, target_label):
     '''
     trip_indices = np.logical_and(np.array(trips["County Name"] == (county_name + " County")), np.array(trips["State Postal Code"] == "GA"))
     trip_indices = np.logical_and(trip_indices, np.array(pd.to_datetime(trips["Date"]) >= "2020-02-29"))
+    trip_indices = np.logical_and(trip_indices, np.array(pd.to_datetime(trips["Date"]) <= "2021-04-10"))
     county_travel = trips.loc[trip_indices].reset_index()
 
     county_population = (county_travel["Population Staying at Home"] + county_travel["Population Not Staying at Home"]).iloc[0]
@@ -98,6 +99,7 @@ def state_extraction(target_label):
     '''
     trip_indices = np.array(trips["State Postal Code"] == "GA")
     trip_indices = np.logical_and(trip_indices, np.array(pd.to_datetime(trips["Date"]) >= "2020-02-29"))
+    trip_indices = np.logical_and(trip_indices, np.array(pd.to_datetime(trips["Date"]) <= "2021-04-10"))
     state_travel = trips.loc[trip_indices].reset_index()
     trip_indices = np.where(pd.isnull(state_travel["County Name"]))
     state_travel = state_travel.loc[trip_indices]
