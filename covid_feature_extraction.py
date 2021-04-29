@@ -2,9 +2,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-trips = pd.read_csv("data/Trips_by_Distance.csv")
-epicurve_report_date = pd.read_csv("data/epicurve_rpt_date.csv")
-
 def county_extraction(county_name, target_label):
     '''
     Format the data such that the feature matrix X contains the data vectors
@@ -27,6 +24,9 @@ def county_extraction(county_name, target_label):
     - feature_labels : the names of the features corresponding to the columns
         of the feature matrix
     '''
+    trips = pd.read_csv("data/Trips_by_Distance.csv")
+	epicurve_report_date = pd.read_csv("data/epicurve_rpt_date.csv")
+
     trip_indices = np.logical_and(np.array(trips["County Name"] == (county_name + " County")), np.array(trips["State Postal Code"] == "GA"))
     trip_indices = np.logical_and(trip_indices, np.array(pd.to_datetime(trips["Date"]) >= "2020-02-29"))
     trip_indices = np.logical_and(trip_indices, np.array(pd.to_datetime(trips["Date"]) <= "2021-04-10"))
@@ -97,6 +97,9 @@ def state_extraction(target_label):
     - feature_labels : the names of the features corresponding to the columns
         of the feature matrix
     '''
+    trips = pd.read_csv("data/Trips_by_Distance.csv")
+	epicurve_report_date = pd.read_csv("data/epicurve_rpt_date.csv")
+
     trip_indices = np.array(trips["State Postal Code"] == "GA")
     trip_indices = np.logical_and(trip_indices, np.array(pd.to_datetime(trips["Date"]) >= "2020-02-29"))
     trip_indices = np.logical_and(trip_indices, np.array(pd.to_datetime(trips["Date"]) <= "2021-04-10"))
@@ -146,3 +149,216 @@ def state_extraction(target_label):
     state_X = pd.concat([state_case_frac, state_case_cum_frac, state_case_ma_frac,
                          state_death_frac, state_death_cum_frac, state_death_ma_frac],axis=1)
     return state_trip_dates, state_y, state_X, feature_labels
+
+
+def first_dose(state_name, state_code, target_label):
+	'''
+    Given a state, find the number of first doses allocated to that state
+    on each day starting with December 1st, 2020.
+    
+    Parameters
+    ----------
+    - state_name : string specifying the name of the state
+    - state_code : string postal abbreviation code corresponding to the
+    	state being considered
+    - target_label : string specifying either the Population, Long, Medium, or
+        Short corresponding to fractional population not staying home on a given
+        day and the fractions of long (>100 miles), medium (10-100 miles), and
+        short (<10 miles) trips in Georgia on a given day.
+    Returns
+    -------
+    - state_alloc_dates : the date corresponding to each datum
+    - state_y : the y vector as specified by the target_label parameter
+    - state_dose_nums : instantaneous first doses of each vaccine allocated to
+    	the state on each day
+    '''
+	trips = pd.read_csv("data/Trips_by_Distance.csv")
+
+	trip_indices = np.array(trips["State Postal Code"] == state_code)
+	trip_indices = np.logical_and(trip_indices, np.array(pd.to_datetime(trips["Date"]) >= "2020-12-01"))
+	trip_indices = np.logical_and(trip_indices, np.array(pd.to_datetime(trips["Date"]) <= "2021-04-26"))
+	state_travel = trips.loc[trip_indices].reset_index()
+	trip_indices = np.where(pd.isnull(state_travel["County Name"]))
+	state_travel = state_travel.loc[trip_indices]
+	
+	state_population = (state_travel["Population Staying at Home"] + state_travel["Population Not Staying at Home"]).iloc[0]
+    state_trip_dates = pd.to_datetime(state_travel["Date"])
+
+	if target_label == "Population":
+        state_travelers = state_travel["Population Not Staying at Home"]
+        state_y = state_travelers/state_population
+    elif target_label == "Long":
+        state_long_trips = state_travel["Number of Trips 100-250"] + state_travel["Number of Trips 250-500"] + state_travel["Number of Trips >=500"]
+        state_y = state_long_trips/state_travel["Number of Trips"]
+    elif target_label == "Medium":
+        state_med_trips = state_travel["Number of Trips 10-25"] + state_travel["Number of Trips 25-50"] + state_travel["Number of Trips 50-100"]
+        state_y = state_med_trips/state_travel["Number of Trips"]
+    elif target_label == "Short":
+        state_short_trips = state_travel["Number of Trips <1"] + state_travel["Number of Trips 1-3"] + state_travel["Number of Trips 3-5"] + state_travel["Number of Trips 5-10"]
+        state_y = state_short_trips/state_travel["Number of Trips"]
+
+	state_pfizer = pfizer.loc[pfizer["Jurisdiction"] == state_name].reset_index(drop=True)
+	state_moderna = moderna.loc[moderna["Jurisdiction"] == state_name].reset_index(drop=True)
+	state_janssen = janssen.loc[janssen["Jurisdiction"] == state_name].reset_index(drop=True)
+
+	all_dates = list(pd.to_datetime(state_travel["Date"]))
+	all_dates_str = []
+	for i in range(len(all_dates)):
+	    all_dates_str.append(all_dates[i].strftime("%m/%d/%Y"))
+	state_first_dose = pd.DataFrame()
+	for i in range(len(all_dates)):
+	    num_allocations = 0
+	    if all_dates_str[i] in list(state_pfizer["Week of Allocations"]):
+	        num_allocations += int(state_pfizer[state_pfizer["Week of Allocations"] == all_dates_str[i]]["1st Dose Allocations"])
+	    if all_dates_str[i] in list(state_moderna["Week of Allocations"]):
+	        num_allocations += int(state_moderna[state_moderna["Week of Allocations"] == all_dates_str[i]]["1st Dose Allocations"])
+	    if all_dates_str[i] in list(state_janssen["Week of Allocations"]):
+	        num_allocations += int(state_janssen[state_janssen["Week of Allocations"] == all_dates_str[i]]["1st Dose Allocations"])
+	    state_first_dose = state_first_dose.append({"Week of Allocations":all_dates_str[i],
+	                                                "1st Dose Allocations":num_allocations},ignore_index=True)
+	state_alloc_dates = pd.to_datetime(state_first_dose["Week of Allocations"])
+    state_dose_nums = state_first_dose["1st Dose Allocations"]
+
+    return state_alloc_dates, state_y, state_dose_nums
+
+
+def second_dose(state_name, state_code, target_label):
+	'''
+    Given a state, find the number of second doses allocated to that state
+    on each day starting with December 1st, 2020.
+    
+    Parameters
+    ----------
+    - state_name : string specifying the name of the state
+    - state_code : string postal abbreviation code corresponding to the
+    	state being considered
+    - target_label : string specifying either the Population, Long, Medium, or
+        Short corresponding to fractional population not staying home on a given
+        day and the fractions of long (>100 miles), medium (10-100 miles), and
+        short (<10 miles) trips in Georgia on a given day.
+    Returns
+    -------
+    - state_alloc_dates : the date corresponding to each datum
+    - state_y : the y vector as specified by the target_label parameter
+    - state_dose_nums : instantaneous second doses of each vaccine allocated to
+    	the state on each day
+    '''
+	trips = pd.read_csv("data/Trips_by_Distance.csv")
+
+	trip_indices = np.array(trips["State Postal Code"] == state_code)
+	trip_indices = np.logical_and(trip_indices, np.array(pd.to_datetime(trips["Date"]) >= "2020-12-01"))
+	trip_indices = np.logical_and(trip_indices, np.array(pd.to_datetime(trips["Date"]) <= "2021-04-26"))
+	state_travel = trips.loc[trip_indices].reset_index()
+	trip_indices = np.where(pd.isnull(state_travel["County Name"]))
+	state_travel = state_travel.loc[trip_indices]
+	
+	state_population = (state_travel["Population Staying at Home"] + state_travel["Population Not Staying at Home"]).iloc[0]
+    state_trip_dates = pd.to_datetime(state_travel["Date"])
+
+	if target_label == "Population":
+        state_travelers = state_travel["Population Not Staying at Home"]
+        state_y = state_travelers/state_population
+    elif target_label == "Long":
+        state_long_trips = state_travel["Number of Trips 100-250"] + state_travel["Number of Trips 250-500"] + state_travel["Number of Trips >=500"]
+        state_y = state_long_trips/state_travel["Number of Trips"]
+    elif target_label == "Medium":
+        state_med_trips = state_travel["Number of Trips 10-25"] + state_travel["Number of Trips 25-50"] + state_travel["Number of Trips 50-100"]
+        state_y = state_med_trips/state_travel["Number of Trips"]
+    elif target_label == "Short":
+        state_short_trips = state_travel["Number of Trips <1"] + state_travel["Number of Trips 1-3"] + state_travel["Number of Trips 3-5"] + state_travel["Number of Trips 5-10"]
+        state_y = state_short_trips/state_travel["Number of Trips"]
+
+	state_pfizer = pfizer.loc[pfizer["Jurisdiction"] == state_name].reset_index(drop=True)
+	state_moderna = moderna.loc[moderna["Jurisdiction"] == state_name].reset_index(drop=True)
+
+	all_dates = list(pd.to_datetime(state_travel["Date"]))
+	all_dates_str = []
+	for i in range(len(all_dates)):
+	    all_dates_str.append(all_dates[i].strftime("%m/%d/%Y"))
+	state_second_dose = pd.DataFrame()
+	for i in range(len(all_dates)):
+	    num_allocations = 0
+	    if all_dates_str[i] in list(state_pfizer["Week of Allocations"]):
+	        num_allocations += int(state_pfizer[state_pfizer["Week of Allocations"] == all_dates_str[i]]["2nd Dose Allocations"])
+	    if all_dates_str[i] in list(state_moderna["Week of Allocations"]):
+	        num_allocations += int(state_moderna[state_moderna["Week of Allocations"] == all_dates_str[i]]["2nd Dose Allocations"])
+	    state_second_dose = state_second_dose.append({"Week of Allocations":all_dates_str[i],
+	                                                "2nd Dose Allocations":num_allocations},ignore_index=True)
+	state_alloc_dates = pd.to_datetime(state_second_dose["Week of Allocations"])
+    state_dose_nums = state_second_dose["2nd Dose Allocations"]
+
+    return state_alloc_dates, state_y, state_dose_nums
+
+
+def cumul_doses(state_name, state_code, target_label):
+	'''
+    Given a state, find the number of cumulative doses allocated to that state
+    on starting with December 1st, 2020.
+    
+    Parameters
+    ----------
+    - state_name : string specifying the name of the state
+    - state_code : string postal abbreviation code corresponding to the
+    	state being considered
+    - target_label : string specifying either the Population, Long, Medium, or
+        Short corresponding to fractional population not staying home on a given
+        day and the fractions of long (>100 miles), medium (10-100 miles), and
+        short (<10 miles) trips in Georgia on a given day.
+    Returns
+    -------
+    - state_alloc_dates : the date corresponding to each datum
+    - state_y : the y vector as specified by the target_label parameter
+    - state_doses_cumul : cumulative doses of each vaccine allocated to
+    	the state on each day
+    '''
+	trips = pd.read_csv("data/Trips_by_Distance.csv")
+
+	trip_indices = np.array(trips["State Postal Code"] == state_code)
+	trip_indices = np.logical_and(trip_indices, np.array(pd.to_datetime(trips["Date"]) >= "2020-12-01"))
+	trip_indices = np.logical_and(trip_indices, np.array(pd.to_datetime(trips["Date"]) <= "2021-04-26"))
+	state_travel = trips.loc[trip_indices].reset_index()
+	trip_indices = np.where(pd.isnull(state_travel["County Name"]))
+	state_travel = state_travel.loc[trip_indices]
+	
+	state_population = (state_travel["Population Staying at Home"] + state_travel["Population Not Staying at Home"]).iloc[0]
+    state_trip_dates = pd.to_datetime(state_travel["Date"])
+
+	if target_label == "Population":
+        state_travelers = state_travel["Population Not Staying at Home"]
+        state_y = state_travelers/state_population
+    elif target_label == "Long":
+        state_long_trips = state_travel["Number of Trips 100-250"] + state_travel["Number of Trips 250-500"] + state_travel["Number of Trips >=500"]
+        state_y = state_long_trips/state_travel["Number of Trips"]
+    elif target_label == "Medium":
+        state_med_trips = state_travel["Number of Trips 10-25"] + state_travel["Number of Trips 25-50"] + state_travel["Number of Trips 50-100"]
+        state_y = state_med_trips/state_travel["Number of Trips"]
+    elif target_label == "Short":
+        state_short_trips = state_travel["Number of Trips <1"] + state_travel["Number of Trips 1-3"] + state_travel["Number of Trips 3-5"] + state_travel["Number of Trips 5-10"]
+        state_y = state_short_trips/state_travel["Number of Trips"]
+
+	state_pfizer = pfizer.loc[pfizer["Jurisdiction"] == state_name].reset_index(drop=True)
+	state_moderna = moderna.loc[moderna["Jurisdiction"] == state_name].reset_index(drop=True)
+	state_janssen = janssen.loc[janssen["Jurisdiction"] == state_name].reset_index(drop=True)
+
+	all_dates = list(pd.to_datetime(state_travel["Date"]))
+	all_dates_str = []
+	for i in range(len(all_dates)):
+	    all_dates_str.append(all_dates[i].strftime("%m/%d/%Y"))
+	state_doses = pd.DataFrame()
+	for i in range(len(all_dates)):
+	    num_allocations = 0
+	    if all_dates_str[i] in list(state_pfizer["Week of Allocations"]):
+	        num_allocations += int(state_pfizer[state_pfizer["Week of Allocations"] == all_dates_str[i]]["1st Dose Allocations"])
+	        num_allocations += int(state_pfizer[state_pfizer["Week of Allocations"] == all_dates_str[i]]["2nd Dose Allocations"])
+	    if all_dates_str[i] in list(state_moderna["Week of Allocations"]):
+	        num_allocations += int(state_moderna[state_moderna["Week of Allocations"] == all_dates_str[i]]["1st Dose Allocations"])
+	        num_allocations += int(state_moderna[state_moderna["Week of Allocations"] == all_dates_str[i]]["2nd Dose Allocations"])
+	    if all_dates_str[i] in list(state_janssen["Week of Allocations"]):
+	        num_allocations += int(state_janssen[state_janssen["Week of Allocations"] == all_dates_str[i]]["1st Dose Allocations"])
+	    state_doses = state_doses.append({"Week of Allocations":all_dates_str[i],
+	                                                "Total Doses":num_allocations},ignore_index=True)
+	state_alloc_dates = pd.to_datetime(state_doses["Week of Allocations"])
+    state_dose_nums = state_doses["Total Doses"]
+    state_doses_cumul = state_dose_nums.cumsum()
+
+    return state_alloc_dates, state_y, state_doses_cumul
