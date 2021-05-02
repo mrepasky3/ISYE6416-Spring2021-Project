@@ -174,6 +174,10 @@ def first_dose(state_name, state_code, target_label):
     '''
     trips = pd.read_csv("data/Trips_by_Distance.csv")
 
+    pfizer = pd.read_csv("data/COVID-19_Vaccine_Distribution_Allocations_by_Jurisdiction_-_Pfizer.csv")
+    moderna = pd.read_csv("data/COVID-19_Vaccine_Distribution_Allocations_by_Jurisdiction_-_Moderna.csv")
+    janssen = pd.read_csv("data/COVID-19_Vaccine_Distribution_Allocations_by_Jurisdiction_-_Janssen.csv")
+
     trip_indices = np.array(trips["State Postal Code"] == state_code)
     trip_indices = np.logical_and(trip_indices, np.array(pd.to_datetime(trips["Date"]) >= "2020-12-01"))
     trip_indices = np.logical_and(trip_indices, np.array(pd.to_datetime(trips["Date"]) <= "2021-04-26"))
@@ -245,6 +249,9 @@ def second_dose(state_name, state_code, target_label):
     '''
     trips = pd.read_csv("data/Trips_by_Distance.csv")
 
+    pfizer = pd.read_csv("data/COVID-19_Vaccine_Distribution_Allocations_by_Jurisdiction_-_Pfizer.csv")
+    moderna = pd.read_csv("data/COVID-19_Vaccine_Distribution_Allocations_by_Jurisdiction_-_Moderna.csv")
+
     trip_indices = np.array(trips["State Postal Code"] == state_code)
     trip_indices = np.logical_and(trip_indices, np.array(pd.to_datetime(trips["Date"]) >= "2020-12-01"))
     trip_indices = np.logical_and(trip_indices, np.array(pd.to_datetime(trips["Date"]) <= "2021-04-26"))
@@ -312,6 +319,10 @@ def cumul_doses(state_name, state_code, target_label):
         the state on each day
     '''
     trips = pd.read_csv("data/Trips_by_Distance.csv")
+
+    pfizer = pd.read_csv("data/COVID-19_Vaccine_Distribution_Allocations_by_Jurisdiction_-_Pfizer.csv")
+    moderna = pd.read_csv("data/COVID-19_Vaccine_Distribution_Allocations_by_Jurisdiction_-_Moderna.csv")
+    janssen = pd.read_csv("data/COVID-19_Vaccine_Distribution_Allocations_by_Jurisdiction_-_Janssen.csv")
 
     trip_indices = np.array(trips["State Postal Code"] == state_code)
     trip_indices = np.logical_and(trip_indices, np.array(pd.to_datetime(trips["Date"]) >= "2020-12-01"))
