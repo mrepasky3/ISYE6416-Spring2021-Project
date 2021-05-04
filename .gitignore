@@ -1,4 +1,6 @@
 *.pdf
+*.png
+*.jpg
 data
 old_data
 *.csv
